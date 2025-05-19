@@ -3,153 +3,365 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Galeri</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <title>Galeri Foto</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
-      background-color: #fff0f5;
-      text-align: center;
+      background-color: #f9f0ff;
+      margin: 0;
       padding: 20px;
+      text-align: center;
     }
+    
+    h1 {
+      color: #8a2be2;
+      margin-bottom: 10px;
+    }
+    
+    .upload-section {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      max-width: 500px;
+      margin: 0 auto 30px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
     input, textarea, button {
-      margin: 10px;
-      padding: 8px;
+      margin: 10px 0;
+      padding: 10px;
+      width: 100%;
+      max-width: 400px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
       font-size: 1em;
     }
-    #gallery div {
-      display: inline-block;
-      margin: 10px;
-      background: #ffeef8;
-      border-radius: 12px;
-      padding: 10px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    img {
-      width: 200px;
-      border-radius: 8px;
-    }
-    .control-btns button {
-      margin: 5px;
-      padding: 5px 10px;
-      border: none;
-      border-radius: 6px;
-      background-color: #ff69b4;
+    
+    button {
+      background-color: #8a2be2;
       color: white;
+      border: none;
       cursor: pointer;
+      transition: background-color 0.3s;
     }
-    .control-btns button:hover {
-      background-color: #ff1493;
+    
+    button:hover {
+      background-color: #7b1fa2;
+    }
+    
+    button:disabled {
+      background-color: #b39ddb;
+      cursor: not-allowed;
+    }
+    
+    #gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 20px;
+      padding: 20px;
+    }
+    
+    .image-card {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      transition: transform 0.3s ease;
+    }
+    
+    .image-card:hover {
+      transform: translateY(-5px);
+    }
+    
+    .image-card img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+    }
+    
+    .image-info {
+      padding: 15px;
+    }
+    
+    .image-info p {
+      margin: 5px 0;
+      color: #555;
+    }
+    
+    .control-btns {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      padding: 10px;
+    }
+    
+    .control-btns button {
+      padding: 8px 12px;
+      font-size: 0.9em;
+      width: auto;
+    }
+    
+    .delete-btn {
+      background-color: #ff5252;
+    }
+    
+    .edit-btn {
+      background-color: #4caf50;
+    }
+    
+    #statusMessage {
+      min-height: 20px;
+      margin: 10px 0;
+      font-weight: bold;
+    }
+    
+    .success {
+      color: #4caf50;
+    }
+    
+    .error {
+      color: #ff5252;
     }
   </style>
 </head>
 <body>
-  <h1>Galeri</h1>
-  <p>Upload foto-foto</p>
+  <div class="upload-section">
+    <h1>📷 Galeri Foto</h1>
+    <p>Bagikan momen berharga Anda</p>
+    
+    <input type="file" id="imageInput" accept="image/*" />
+    <input type="text" id="descriptionInput" placeholder="Deskripsi foto..." />
+    <input type="date" id="dateInput" />
+    
+    <button onclick="uploadImage()" id="uploadBtn">
+      <span id="uploadText">Upload</span>
+      <span id="uploadSpinner" style="display:none">🔄 Memproses...</span>
+    </button>
+    
+    <p id="statusMessage"></p>
+  </div>
 
-  <input type="file" id="imageInput" /> <br />
-  <input type="text" id="descriptionInput" placeholder="Deskripsi..." /> <br />
-  <input type="date" id="dateInput" /> <br />
-  <button onclick="uploadImage()">Upload</button>
-
-  <h2>Galeri</h2>
-  <div id="gallery"></div>
+  <h2>Galeri Foto</h2>
+  <div id="gallery">
+    <p>Memuat galeri...</p>
+  </div>
 
   <script>
+    // Konfigurasi
     const SUPABASE_URL = 'https://yloxsoekekxpcypygufc.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlsb3hzb2VrZWt4cGN5cHlndWZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc2MjY0NDYsImV4cCI6MjA2MzIwMjQ0Nn0.Xwc-tXxSDiJP14h-yz0cFwcf_PVZNraDiIgCZ8p4qs8';
     const IMGUR_CLIENT_ID = '3f14502cc5b7e8e';
-
+    
+    // Inisialisasi Supabase
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    let channel;
 
-    async function uploadImage() {
+    // Fungsi Validasi
+    function validateInputs() {
       const file = document.getElementById('imageInput').files[0];
-      const description = document.getElementById('descriptionInput').value;
-      const date = document.getElementById('dateInput').value;
+      const description = document.getElementById('descriptionInput').value.trim();
+      
+      if (!file) {
+        showStatus("Silakan pilih gambar terlebih dahulu", "error");
+        return false;
+      }
+      
+      if (file.size > 5 * 1024 * 1024) {
+        showStatus("Ukuran gambar terlalu besar. Maksimal 5MB", "error");
+        return false;
+      }
+      
+      if (description.length > 200) {
+        showStatus("Deskripsi terlalu panjang (maks 200 karakter)", "error");
+        return false;
+      }
+      
+      return true;
+    }
 
-      if (!file) return alert("Pilih gambar dulu yaa");
+    // Fungsi Upload
+    async function uploadImage() {
+      if (!validateInputs()) return;
+      
+      const uploadBtn = document.getElementById('uploadBtn');
+      const uploadText = document.getElementById('uploadText');
+      const uploadSpinner = document.getElementById('uploadSpinner');
+      
+      // Tampilkan loading state
+      uploadText.style.display = 'none';
+      uploadSpinner.style.display = 'inline';
+      uploadBtn.disabled = true;
+      showStatus("Mengupload gambar...", "info");
+      
+      try {
+        const file = document.getElementById('imageInput').files[0];
+        const description = document.getElementById('descriptionInput').value;
+        const date = document.getElementById('dateInput').value;
 
-      const formData = new FormData();
-      formData.append("image", file);
+        // Upload ke Imgur
+        const formData = new FormData();
+        formData.append("image", file);
 
-      const imgurRes = await fetch("https://api.imgur.com/3/image", {
-        method: "POST",
-        headers: {
-          Authorization: `Client-ID ${IMGUR_CLIENT_ID}`,
-        },
-        body: formData,
-      });
+        const imgurRes = await fetch("https://api.imgur.com/3/image", {
+          method: "POST",
+          headers: { Authorization: `Client-ID ${IMGUR_CLIENT_ID}` },
+          body: formData,
+        });
 
-      const imgurData = await imgurRes.json();
-      const imgurLink = imgurData.data.link;
+        if (!imgurRes.ok) {
+          throw new Error("Gagal upload ke Imgur");
+        }
 
-      const { data, error } = await supabaseClient.from("images").insert([
-        { link: imgurLink, description: description, date: date },
-      ]);
+        const imgurData = await imgurRes.json();
+        const imgurLink = imgurData.data.link;
 
-      if (error) {
-        alert("Gagal simpan ke galeri 😢");
-        console.error(error);
-      } else {
+        // Simpan ke Supabase
+        const { error } = await supabaseClient.from("images").insert([
+          { link: imgurLink, description: description, date: date },
+        ]);
+
+        if (error) throw error;
+
+        // Reset form
         document.getElementById('imageInput').value = "";
         document.getElementById('descriptionInput').value = "";
         document.getElementById('dateInput').value = "";
-        loadGallery();
+        
+        showStatus("Upload berhasil!", "success");
+      } catch (error) {
+        console.error("Upload error:", error);
+        showStatus(`Error: ${error.message}`, "error");
+      } finally {
+        uploadText.style.display = 'inline';
+        uploadSpinner.style.display = 'none';
+        uploadBtn.disabled = false;
       }
     }
 
+    // Fungsi Load Gallery
     async function loadGallery() {
-      const { data, error } = await supabaseClient
-        .from("images")
-        .select("*")
-        .order("created_at", { ascending: false });
+      try {
+        const { data, error } = await supabaseClient
+          .from("images")
+          .select("*")
+          .order("created_at", { ascending: false });
 
-      const container = document.getElementById("gallery");
-      container.innerHTML = "";
+        if (error) throw error;
 
-      data.forEach((item) => {
-        const wrapper = document.createElement("div");
+        const container = document.getElementById("gallery");
+        container.innerHTML = "";
 
-        const img = document.createElement("img");
-        img.src = item.link;
-        img.alt = item.description || "";
+        if (data.length === 0) {
+          container.innerHTML = '<p>Belum ada foto di galeri</p>';
+          return;
+        }
 
-        const caption = document.createElement("p");
-        caption.textContent = `${item.description || ''} (${item.date || ''})`;
+        data.forEach((item) => {
+          const card = document.createElement("div");
+          card.className = "image-card";
 
-        const controlBtns = document.createElement("div");
-        controlBtns.className = "control-btns";
+          const img = document.createElement("img");
+          img.src = item.link;
+          img.alt = item.description || "Galeri foto";
+          img.loading = "lazy";
 
-        const deleteBtn = document.createElement("button");
-        deleteBtn.textContent = "Hapus";
-        deleteBtn.onclick = async () => {
-          if (confirm("Yakin mau hapus foto ini?")) {
-            await supabaseClient.from("images").delete().eq("id", item.id);
-            loadGallery();
-          }
-        };
+          const infoDiv = document.createElement("div");
+          infoDiv.className = "image-info";
 
-        const editBtn = document.createElement("button");
-        editBtn.textContent = "Ubah Deskripsi";
-        editBtn.onclick = async () => {
-          const newDesc = prompt("Deskripsi baru:", item.description || "");
-          if (newDesc !== null) {
-            await supabaseClient.from("images").update({ description: newDesc }).eq("id", item.id);
-            loadGallery();
-          }
-        };
+          const descP = document.createElement("p");
+          descP.textContent = item.description || "Tanpa deskripsi";
 
-        controlBtns.appendChild(editBtn);
-        controlBtns.appendChild(deleteBtn);
+          const dateP = document.createElement("p");
+          dateP.textContent = item.date || "Tanpa tanggal";
+          dateP.style.fontSize = "0.8em";
+          dateP.style.color = "#888";
 
-        wrapper.appendChild(img);
-        wrapper.appendChild(caption);
-        wrapper.appendChild(controlBtns);
-        container.appendChild(wrapper);
-      });
+          const controlDiv = document.createElement("div");
+          controlDiv.className = "control-btns";
+
+          const editBtn = document.createElement("button");
+          editBtn.className = "edit-btn";
+          editBtn.textContent = "Edit";
+          editBtn.onclick = async () => {
+            const newDesc = prompt("Deskripsi baru:", item.description || "");
+            if (newDesc !== null) {
+              try {
+                await supabaseClient
+                  .from("images")
+                  .update({ description: newDesc })
+                  .eq("id", item.id);
+              } catch (error) {
+                showStatus("Gagal mengupdate deskripsi", "error");
+              }
+            }
+          };
+
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "delete-btn";
+          deleteBtn.textContent = "Hapus";
+          deleteBtn.onclick = async () => {
+            if (confirm("Yakin ingin menghapus foto ini?")) {
+              try {
+                await supabaseClient
+                  .from("images")
+                  .delete()
+                  .eq("id", item.id);
+                showStatus("Foto berhasil dihapus", "success");
+              } catch (error) {
+                showStatus("Gagal menghapus foto", "error");
+              }
+            }
+          };
+
+          controlDiv.appendChild(editBtn);
+          controlDiv.appendChild(deleteBtn);
+
+          infoDiv.appendChild(descP);
+          infoDiv.appendChild(dateP);
+          infoDiv.appendChild(controlDiv);
+
+          card.appendChild(img);
+          card.appendChild(infoDiv);
+
+          container.appendChild(card);
+        });
+      } catch (error) {
+        console.error("Load gallery error:", error);
+        document.getElementById("gallery").innerHTML = 
+          '<p class="error">Gagal memuat galeri. Silakan refresh halaman.</p>';
+      }
     }
 
-    document.addEventListener("DOMContentLoaded", loadGallery);
+    // Fungsi bantu tampilkan status
+    function showStatus(message, type = "info") {
+      const statusEl = document.getElementById("statusMessage");
+      statusEl.textContent = message;
+      statusEl.className = type;
+    }
+
+    // Setup realtime updates
+    function setupRealtime() {
+      channel = supabaseClient
+        .channel('image-changes')
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'images'
+        }, () => loadGallery())
+        .subscribe();
+    }
+
+    // Inisialisasi
+    document.addEventListener("DOMContentLoaded", () => {
+      loadGallery();
+      setupRealtime();
+    });
+
+    // Cleanup
+    window.addEventListener('beforeunload', () => {
+      if (channel) supabaseClient.removeChannel(channel);
+    });
   </script>
 </body>
 </html>
