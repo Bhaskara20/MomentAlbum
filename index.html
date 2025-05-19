@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Personal Gallery</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #fff0f5;
+      margin: 0;
+      padding: 2rem;
+      text-align: center;
+    }
+    h1 {
+      color: #c71585;
+    }
+    input[type="file"], input[type="text"], input[type="date"] {
+      margin: 0.5rem;
+      padding: 0.5rem;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 1rem;
+    }
+    #gallery {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1.5rem;
+      margin-top: 2rem;
+    }
+    .image-item {
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+      width: 220px;
+      padding: 1rem;
+      position: relative;
+      transition: transform 0.2s;
+    }
+    .image-item:hover {
+      transform: scale(1.03);
+    }
+    .image-item img {
+      width: 100%;
+      border-radius: 10px;
+    }
+    .image-meta {
+      font-size: 0.9rem;
+      margin-top: 0.7rem;
+      color: #444;
+    }
+    .image-meta span {
+      display: block;
+      margin-bottom: 0.3rem;
+    }
+    .edit-btn, .save-btn, .delete-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      margin-left: 0.3rem;
+    }
+    .delete-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background-color: rgba(0,0,0,0.6);
+      color: white;
+      border-radius: 50%;
+      width: 25px;
+      height: 25px;
+      line-height: 1;
+    }
+    #uploadBtn {
+      padding: 0.6rem 1.2rem;
+      background-color: #ff69b4;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    #uploadBtn:hover {
+      background-color: #ff1493;
+    }
+    #status {
+      margin-top: 1rem;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1> My Personal Gallery </h1>
+
+  <input type="file" id="imageInput" accept="image/*" /><br/>
+  <input type="text" id="descInput" placeholder="Deskripsi foto..." />
+  <input type="date" id="dateInput" /><br/>
+  <button id="uploadBtn">Upload to Imgur</button>
+  <p id="status"></p>
+
+  <h2>📷 Uploaded Images</h2>
+  <div id="gallery"></div>
+
+  <script>
+    const clientId = "3f14502cc5b7e8e";
+    const input = document.getElementById("imageInput");
+    const descInput = document.getElementById("descInput");
+    const dateInput = document.getElementById("dateInput");
+    const uploadBtn = document.getElementById("uploadBtn");
+    const gallery = document.getElementById("gallery");
+    const statusText = document.getElementById("status");
+
+    const loadGallery = () => {
+      const items = JSON.parse(localStorage.getItem("imgurData")) || [];
+      gallery.innerHTML = "";
+      items.forEach((item, index) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "image-item";
+
+        const img = document.createElement("img");
+        img.src = item.link;
+
+        const meta = document.createElement("div");
+        meta.className = "image-meta";
+
+        const descSpan = document.createElement("span");
+        descSpan.innerHTML = `<strong>📌 ${item.description || "(tanpa deskripsi)"}</strong>`;
+
+        const dateSpan = document.createElement("span");
+        dateSpan.textContent = `📅 ${item.date || "-"}`;
+
+        const editBtn = document.createElement("button");
+        editBtn.textContent = "✏️";
+        editBtn.className = "edit-btn";
+        editBtn.onclick = () => {
+          const newDesc = prompt("Edit deskripsi:", item.description || "");
+          if (newDesc !== null) {
+            item.description = newDesc;
+            items[index] = item;
+            localStorage.setItem("imgurData", JSON.stringify(items));
+            loadGallery();
+          }
+        };
+
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "🗑️";
+        delBtn.className = "delete-btn";
+        delBtn.onclick = () => {
+          deleteImage(index);
+        };
+
+        descSpan.appendChild(editBtn);
+        meta.appendChild(descSpan);
+        meta.appendChild(dateSpan);
+
+        wrapper.appendChild(img);
+        wrapper.appendChild(delBtn);
+        wrapper.appendChild(meta);
+        gallery.appendChild(wrapper);
+      });
+    };
+
+    const deleteImage = (index) => {
+      let items = JSON.parse(localStorage.getItem("imgurData")) || [];
+      items.splice(index, 1);
+      localStorage.setItem("imgurData", JSON.stringify(items));
+      loadGallery();
+    };
+
+    const uploadImage = () => {
+      const file = input.files[0];
+      const desc = descInput.value.trim();
+      const date = dateInput.value;
+
+      if (!file) {
+        alert("Pilih gambar terlebih dahulu.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("image", file);
+
+      statusText.textContent = "Uploading...";
+
+      fetch("https://api.imgur.com/3/image", {
+        method: "POST",
+        headers: {
+          Authorization: "Client-ID " + clientId,
+        },
+        body: formData,
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            const link = data.data.link;
+            statusText.textContent = "Upload sukses!";
+            const items = JSON.parse(localStorage.getItem("imgurData")) || [];
+            items.unshift({ link, description: desc, date });
+            localStorage.setItem("imgurData", JSON.stringify(items));
+            input.value = "";
+            descInput.value = "";
+            dateInput.value = "";
+            loadGallery();
+          } else {
+            statusText.textContent = "Gagal upload 😢";
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          statusText.textContent = "Error saat upload.";
+        });
+    };
+
+    uploadBtn.addEventListener("click", uploadImage);
+    loadGallery();
+  </script>
+</body>
+</html>
