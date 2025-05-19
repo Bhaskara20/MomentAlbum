@@ -2,218 +2,154 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>My Personal Gallery</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Galeri</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <style>
     body {
       font-family: 'Segoe UI', sans-serif;
       background-color: #fff0f5;
-      margin: 0;
-      padding: 2rem;
       text-align: center;
+      padding: 20px;
     }
-    h1 {
-      color: #c71585;
+    input, textarea, button {
+      margin: 10px;
+      padding: 8px;
+      font-size: 1em;
     }
-    input[type="file"], input[type="text"], input[type="date"] {
-      margin: 0.5rem;
-      padding: 0.5rem;
+    #gallery div {
+      display: inline-block;
+      margin: 10px;
+      background: #ffeef8;
+      border-radius: 12px;
+      padding: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    img {
+      width: 200px;
       border-radius: 8px;
-      border: 1px solid #ccc;
-      font-size: 1rem;
     }
-    #gallery {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 1.5rem;
-      margin-top: 2rem;
-    }
-    .image-item {
-      background: #ffffff;
-      border-radius: 16px;
-      box-shadow: 0 6px 12px rgba(0,0,0,0.1);
-      width: 220px;
-      padding: 1rem;
-      position: relative;
-      transition: transform 0.2s;
-    }
-    .image-item:hover {
-      transform: scale(1.03);
-    }
-    .image-item img {
-      width: 100%;
-      border-radius: 10px;
-    }
-    .image-meta {
-      font-size: 0.9rem;
-      margin-top: 0.7rem;
-      color: #444;
-    }
-    .image-meta span {
-      display: block;
-      margin-bottom: 0.3rem;
-    }
-    .edit-btn, .save-btn, .delete-btn {
-      background: none;
+    .control-btns button {
+      margin: 5px;
+      padding: 5px 10px;
       border: none;
-      cursor: pointer;
-      font-size: 1rem;
-      margin-left: 0.3rem;
-    }
-    .delete-btn {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      background-color: rgba(0,0,0,0.6);
-      color: white;
-      border-radius: 50%;
-      width: 25px;
-      height: 25px;
-      line-height: 1;
-    }
-    #uploadBtn {
-      padding: 0.6rem 1.2rem;
+      border-radius: 6px;
       background-color: #ff69b4;
       color: white;
-      border: none;
-      border-radius: 8px;
       cursor: pointer;
-      font-size: 1rem;
     }
-    #uploadBtn:hover {
+    .control-btns button:hover {
       background-color: #ff1493;
-    }
-    #status {
-      margin-top: 1rem;
-      font-weight: bold;
     }
   </style>
 </head>
 <body>
-  <h1> My Personal Gallery </h1>
+  <h1>Galeri</h1>
+  <p>Upload foto-foto</p>
 
-  <input type="file" id="imageInput" accept="image/*" /><br/>
-  <input type="text" id="descInput" placeholder="Deskripsi foto..." />
-  <input type="date" id="dateInput" /><br/>
-  <button id="uploadBtn">Upload to Imgur</button>
-  <p id="status"></p>
+  <input type="file" id="imageInput" /> <br />
+  <input type="text" id="descriptionInput" placeholder="Deskripsi..." /> <br />
+  <input type="date" id="dateInput" /> <br />
+  <button onclick="uploadImage()">Upload</button>
 
-  <h2>📷 Uploaded Images</h2>
+  <h2>Galeri</h2>
   <div id="gallery"></div>
 
   <script>
-    const clientId = "3f14502cc5b7e8e";
-    const input = document.getElementById("imageInput");
-    const descInput = document.getElementById("descInput");
-    const dateInput = document.getElementById("dateInput");
-    const uploadBtn = document.getElementById("uploadBtn");
-    const gallery = document.getElementById("gallery");
-    const statusText = document.getElementById("status");
+    const SUPABASE_URL = 'https://yloxsoekekxpcypygufc.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlsb3hzb2VrZWt4cGN5cHlndWZjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc2MjY0NDYsImV4cCI6MjA2MzIwMjQ0Nn0.Xwc-tXxSDiJP14h-yz0cFwcf_PVZNraDiIgCZ8p4qs8';
+    const IMGUR_CLIENT_ID = '3f14502cc5b7e8e';
 
-    const loadGallery = () => {
-      const items = JSON.parse(localStorage.getItem("imgurData")) || [];
-      gallery.innerHTML = "";
-      items.forEach((item, index) => {
-        const wrapper = document.createElement("div");
-        wrapper.className = "image-item";
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        const img = document.createElement("img");
-        img.src = item.link;
+    async function uploadImage() {
+      const file = document.getElementById('imageInput').files[0];
+      const description = document.getElementById('descriptionInput').value;
+      const date = document.getElementById('dateInput').value;
 
-        const meta = document.createElement("div");
-        meta.className = "image-meta";
-
-        const descSpan = document.createElement("span");
-        descSpan.innerHTML = `<strong>📌 ${item.description || "(tanpa deskripsi)"}</strong>`;
-
-        const dateSpan = document.createElement("span");
-        dateSpan.textContent = `📅 ${item.date || "-"}`;
-
-        const editBtn = document.createElement("button");
-        editBtn.textContent = "✏️";
-        editBtn.className = "edit-btn";
-        editBtn.onclick = () => {
-          const newDesc = prompt("Edit deskripsi:", item.description || "");
-          if (newDesc !== null) {
-            item.description = newDesc;
-            items[index] = item;
-            localStorage.setItem("imgurData", JSON.stringify(items));
-            loadGallery();
-          }
-        };
-
-        const delBtn = document.createElement("button");
-        delBtn.textContent = "🗑️";
-        delBtn.className = "delete-btn";
-        delBtn.onclick = () => {
-          deleteImage(index);
-        };
-
-        descSpan.appendChild(editBtn);
-        meta.appendChild(descSpan);
-        meta.appendChild(dateSpan);
-
-        wrapper.appendChild(img);
-        wrapper.appendChild(delBtn);
-        wrapper.appendChild(meta);
-        gallery.appendChild(wrapper);
-      });
-    };
-
-    const deleteImage = (index) => {
-      let items = JSON.parse(localStorage.getItem("imgurData")) || [];
-      items.splice(index, 1);
-      localStorage.setItem("imgurData", JSON.stringify(items));
-      loadGallery();
-    };
-
-    const uploadImage = () => {
-      const file = input.files[0];
-      const desc = descInput.value.trim();
-      const date = dateInput.value;
-
-      if (!file) {
-        alert("Pilih gambar terlebih dahulu.");
-        return;
-      }
+      if (!file) return alert("Pilih gambar dulu yaa");
 
       const formData = new FormData();
       formData.append("image", file);
 
-      statusText.textContent = "Uploading...";
-
-      fetch("https://api.imgur.com/3/image", {
+      const imgurRes = await fetch("https://api.imgur.com/3/image", {
         method: "POST",
         headers: {
-          Authorization: "Client-ID " + clientId,
+          Authorization: `Client-ID ${IMGUR_CLIENT_ID}`,
         },
         body: formData,
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            const link = data.data.link;
-            statusText.textContent = "Upload sukses!";
-            const items = JSON.parse(localStorage.getItem("imgurData")) || [];
-            items.unshift({ link, description: desc, date });
-            localStorage.setItem("imgurData", JSON.stringify(items));
-            input.value = "";
-            descInput.value = "";
-            dateInput.value = "";
-            loadGallery();
-          } else {
-            statusText.textContent = "Gagal upload 😢";
-          }
-        })
-        .catch(err => {
-          console.error(err);
-          statusText.textContent = "Error saat upload.";
-        });
-    };
+      });
 
-    uploadBtn.addEventListener("click", uploadImage);
-    loadGallery();
+      const imgurData = await imgurRes.json();
+      const imgurLink = imgurData.data.link;
+
+      const { data, error } = await supabaseClient.from("images").insert([
+        { link: imgurLink, description: description, date: date },
+      ]);
+
+      if (error) {
+        alert("Gagal simpan ke galeri 😢");
+        console.error(error);
+      } else {
+        document.getElementById('imageInput').value = "";
+        document.getElementById('descriptionInput').value = "";
+        document.getElementById('dateInput').value = "";
+        loadGallery();
+      }
+    }
+
+    async function loadGallery() {
+      const { data, error } = await supabaseClient
+        .from("images")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      const container = document.getElementById("gallery");
+      container.innerHTML = "";
+
+      data.forEach((item) => {
+        const wrapper = document.createElement("div");
+
+        const img = document.createElement("img");
+        img.src = item.link;
+        img.alt = item.description || "";
+
+        const caption = document.createElement("p");
+        caption.textContent = `${item.description || ''} (${item.date || ''})`;
+
+        const controlBtns = document.createElement("div");
+        controlBtns.className = "control-btns";
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.textContent = "Hapus";
+        deleteBtn.onclick = async () => {
+          if (confirm("Yakin mau hapus foto ini?")) {
+            await supabaseClient.from("images").delete().eq("id", item.id);
+            loadGallery();
+          }
+        };
+
+        const editBtn = document.createElement("button");
+        editBtn.textContent = "Ubah Deskripsi";
+        editBtn.onclick = async () => {
+          const newDesc = prompt("Deskripsi baru:", item.description || "");
+          if (newDesc !== null) {
+            await supabaseClient.from("images").update({ description: newDesc }).eq("id", item.id);
+            loadGallery();
+          }
+        };
+
+        controlBtns.appendChild(editBtn);
+        controlBtns.appendChild(deleteBtn);
+
+        wrapper.appendChild(img);
+        wrapper.appendChild(caption);
+        wrapper.appendChild(controlBtns);
+        container.appendChild(wrapper);
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", loadGallery);
   </script>
 </body>
 </html>
